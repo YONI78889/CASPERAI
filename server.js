@@ -5,61 +5,36 @@ import OpenAI from "openai";
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(express.json({ limit: "1mb" }));
+app.use(express.static("public"));
+
+app.get("/", (req, res) => {
+  res.sendFile(new URL("./public/index.html", import.meta.url).pathname);
+});
+
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-app.use(express.json({ limit: "1mb" }));
-app.use(express.static("public"));
-
 app.post("/api/chat", async (req, res) => {
   try {
     const message = String(req.body?.message || "").trim();
-    const mode = String(req.body?.mode || "general");
-
     if (!message) {
-      return res.status(400).json({ error: "לא נשלחה שאלה." });
+      return res.status(400).json({ error: "No message provided." });
     }
-
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({
-        error: "חסר OPENAI_API_KEY בקובץ .env."
-      });
-    }
-
-    const modeInstructions = {
-      general: "ענה בעברית פשוטה, ברורה ונעימה.",
-      search: "ענה בעברית והשתמש בחיפוש באינטרנט כאשר צריך מידע עדכני.",
-      explain: "הסבר בעברית פשוטה מאוד, שלב אחר שלב.",
-      ideas: "תן רעיונות יצירתיים ומעשיים בעברית.",
-      study: "עזור בלימודים בעברית, עם הסבר ברור ודוגמאות."
-    };
 
     const response = await client.responses.create({
-      model: "gpt-5.4-mini",
-      instructions:
-        "אתה CASPER AI, עוזר אישי בעברית. " +
-        (modeInstructions[mode] || modeInstructions.general) +
-        " אל תמציא עובדות. כאשר מידע עדכני נדרש, השתמש בחיפוש באינטרנט.",
-      tools: mode === "search" ? [{ type: "web_search" }] : [],
+      model: "gpt-4.1-mini",
       input: message
     });
 
-    res.json({
-      answer: response.output_text || "לא התקבלה תשובה."
-    });
-  } catch (error) {
-    console.error(error);
-
-    const message =
-      error?.status === 401
-        ? "מפתח ה-API לא תקין."
-        : error?.message || "אירעה שגיאה בחיבור ל-AI.";
-
-    res.status(500).json({ error: message });
+    res.json({ answer: response.output_text });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.listen(port, () => {
-  console.log(`CASPER AI running at http://localhost:${port}`);
+  console.log(`Server running on ${port}`);
 });
